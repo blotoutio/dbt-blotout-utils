@@ -1,0 +1,17 @@
+name: 'blotout_utils'
+version: '1.0.0'
+config-version: 2
+
+profile: 'athena'
+
+source-paths: ["models"]
+analysis-paths: ["analysis"]
+test-paths: ["tests"]
+data-paths: ["data"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+#log-path: dbt_logs
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_modules"

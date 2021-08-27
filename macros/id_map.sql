@@ -1,4 +1,4 @@
-{% macro get_id_map_query() %}
+{% macro id_map_for_el_data() %}
     {%- set source_relation = adapter.get_relation(database = env_var('DATABASE'), schema = env_var('SCHEMA'), identifier = 'connection_pipeline') -%}
     {%- if source_relation != none %}
         {% set get_active_pipelines %}
@@ -40,4 +40,58 @@
             {% endfor -%}
         {% endif -%}
     {% endif -%}
+{% endmacro %}
+
+{% macro id_map_for_clickstream_utm_id(source_columns, is_incremental = false) %}
+
+    {%- for column in source_columns %}
+        {%- if "search_gclid" in column.name %}
+            UNION
+            SELECT
+                DISTINCT user_id,
+                search_gclid AS data_map_id,
+                'gclid' AS data_map_provider,
+                CAST(event_datetime AS timestamp) AS "user_id_created"
+            FROM
+                core_events
+            WHERE
+                search_gclid IS NOT NULL AND user_id IS NOT NULL
+                {%- if is_incremental %}
+                    AND CAST(event_datetime AS timestamp) > (select max(user_id_created) FROM {{ this }})
+                {% endif -%}
+        {% endif -%}
+
+        {%- if "search_fbclid" in column.name %}
+            UNION
+            SELECT
+                DISTINCT user_id,
+                search_fbclid AS data_map_id,
+                'fbclid' AS data_map_provider,
+                CAST(event_datetime AS timestamp) AS "user_id_created"
+            FROM
+                core_events
+            WHERE
+                search_fbclid IS NOT NULL AND user_id IS NOT NULL
+                {%- if is_incremental %}
+                    AND CAST(event_datetime AS timestamp) > (select max(user_id_created) FROM {{ this }})
+                {% endif -%}
+        {% endif -%}
+
+        {%- if "search_twclid" in column.name %}
+            UNION
+            SELECT
+                DISTINCT user_id,
+                search_twclid AS data_map_id,
+                'twclid' AS data_map_provider,
+                CAST(event_datetime AS timestamp) AS "user_id_created"
+            FROM
+                core_events
+            WHERE
+                search_twclid IS NOT NULL
+                AND user_id IS NOT NULL
+                {%- if is_incremental %}
+                    AND CAST(event_datetime AS timestamp) > (select max(user_id_created) FROM {{ this }})
+                {% endif -%}
+        {% endif -%}
+    {%- endfor %}
 {% endmacro %}

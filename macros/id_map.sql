@@ -113,3 +113,37 @@
         {% endif -%}
     {%- endfor %}
 {% endmacro %}
+
+{% macro id_map_for_clickstream_mapping(is_incremental = false) %}
+    SELECT
+        emap.user_id,
+        emap.data_map_id,
+        emap.data_map_provider,
+        CAST(
+            emap.user_id_created AS TIMESTAMP
+        ) AS "user_id_created"
+    FROM
+        (
+            SELECT
+                user_id,
+                data_map_id,
+                data_map_provider,
+                user_id_created,
+                ROW_NUMBER() over (
+                    PARTITION BY user_id,
+                    data_map_provider
+                    ORDER BY
+                        user_id_created DESC
+                ) AS rn
+            FROM
+                {{ env_var('SCHEMA') }}.core_events
+            WHERE
+                user_id IS NOT NULL
+                AND data_map_id IS NOT NULL
+                {%- if is_incremental %}
+                    AND CAST(user_id_created AS TIMESTAMP) > (SELECT MAX(user_id_created) FROM {{ this }})
+                {% endif -%}
+        ) emap
+    WHERE
+        emap.rn = 1
+{% endmacro %}

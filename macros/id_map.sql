@@ -1,39 +1,57 @@
 {% macro id_map_for_el_data() %}
     {%- set source_relation = adapter.get_relation(database = env_var('DATABASE'), schema = env_var('SCHEMA'), identifier = 'connection_pipeline') -%}
     {%- if source_relation != none %}
-        {% set get_active_pipelines %}
+        {%- set get_active_pipelines %}
         SELECT
-            payload
+             payload
         FROM
-            {{ env_var('SCHEMA') }}.connection_pipeline {% endset %}
-        {% set results = run_query(get_active_pipelines) %}
+            (SELECT
+                 payload,
+                 name,
+                 created_at,
+                 updated_at,
+                 is_deleted,
+                 row_number()
+                over (partition BY name
+            ORDER BY  updated_at DESC) AS RN
+            FROM {{ env_var('SCHEMA') }}.connection_pipeline) emap
+        WHERE emap.RN = 1 AND is_deleted = 0
+        {% endset -%}
+        {%- set results = run_query(get_active_pipelines) -%}
         {%- if execute %}
-            {% set payloadList = results.columns [0].values() %}
+            {%- set payloadList = results.columns [0].values() -%}
         {% else %}
-            {% set payloadList = [] %}
+            {%- set payloadList = [] -%}
         {% endif -%}
-
         {%- if payloadList | length > 0 %}
             {%- for payload in payloadList %}
-                {% set payloadObj = fromjson(payload) %}
-                {% set streams = payloadObj ['syncCatalog'] ['streams'] %}
-                {% for stream in streams %}
-                    {% set table_name = stream ['stream'] ['name'] %}
-                    {% set id_mapping = stream ['stream'] ['jsonSchema'] ['metadata'] ['id_mapping'] %}
+                {%- set payloadObj = fromjson(payload) -%}
+                {%- set streams = payloadObj ['syncCatalog'] ['streams'] -%}
+                {%- for stream in streams %}
+                    {%- set table_name = stream ['stream'] ['name'] -%}
+                    {%- set id_mapping = stream ['stream'] ['jsonSchema'] ['metadata'] ['id_mapping'] -%}
                     {%- if id_mapping | length > 0 %}
+                        {%- set map_column = [] -%}
+                        {%- set map_provider = [] -%}
+                        {%- set map_primary_key = [] -%}
                         {%- for id_map_definition in id_mapping %}
-                            {% set map_provider = id_map_definition ['map_provider'] %}
-                            {% set map_columns = id_map_definition ['map_column'] %}
-                            {%- for map_column in map_columns %}
-                                 UNION
-                                 SELECT
-                                     DISTINCT {{ map_column }},
-                                     {{ map_provider }} AS data_map_id,
-                                     '{{ map_provider }}' AS data_map_provider,
-                                     CAST(event_datetime AS timestamp) AS "user_id_created"
-                                 FROM
-                                     hist_table_name
-                            {% endfor -%}
+                            {%- if id_map_definition ['map_id'] == False %}
+                                {%- set map_column = map_column.append(id_map_definition ['map_column']) -%}
+                                {%- set map_provider = map_provider.append(id_map_definition ['map_provider']) -%}
+                            {% else %}
+                                {%- set map_primary_key = map_primary_key.append(id_map_definition ['map_column']) -%}
+                            {% endif -%}
+                        {% endfor -%}
+                        {%- for i in range(map_column | length) %}
+                            UNION
+                            SELECT
+                                DISTINCT {{ map_primary_key[0] }} as user_id,
+                                {{ map_column[i] }} AS data_map_id,
+                                '{{ map_provider[i] }}' AS data_map_provider,
+                                CAST(event_datetime AS timestamp) AS "user_id_created"
+                            FROM
+                                -- ToDo Schema Name is missing
+                                hist_{{ table_name }}
                         {% endfor -%}
                     {% endif -%}
                 {% endfor -%}

@@ -1,4 +1,4 @@
-{% macro get_meta_data(source_name, table_name, metadata_source_name, metadata_table_name, connection_id, keyName ) %}
+{% macro get_meta_data(source_name, table_name, metadata_source_name, metadata_table_name, connection_id, key_name,bucket_layer) %}
 
 {%- set source_relation = source(source_name, table_name) -%}
 {%- set metadata_source_relation = adapter.get_relation(database= env_var('DATABASE'), schema= metadata_source_name, identifier=metadata_table_name) -%}
@@ -23,10 +23,10 @@
                     {% set streams = payloadObj['syncCatalog']['streams'] %}
                 
                     {% for stream in streams %}
-                        {% set streamName = "stg_"+stream['stream']['name'] %}
+                        {% set streamName = bucket_layer+"_"+stream['stream']['name'] %}
                         {% if streamName == table_name %}
                             {% set streamPayload = stream %}
-                            {% set metaData = streamPayload['config'][keyName] %}
+                            {% set metaData = streamPayload['config'][key_name] %}
                             {{ return(metaData) }}    
                         {% endif %}
                     {% endfor %}    

@@ -5,7 +5,18 @@
 
 
     {% set getMetadataMapping %}
-            select payload from {{metadata_source_name}}.{{metadata_table_name}} where name = '{{connection_id}}'
+         SELECT payload FROM
+            (SELECT
+                 payload,
+                 name,
+                 created_at,
+                 updated_at,
+                 is_deleted,
+                 row_number()
+                over (partition BY name
+            ORDER BY  updated_at DESC) AS RN
+            FROM {{ env_var('METADATA_SOURCE_NAME') }}.connection_pipeline WHERE name='{{ connection_id }}') emap
+        WHERE emap.RN = 1 AND is_deleted = 0
     {% endset %}
 
     {% set metadata_results = run_query(getMetadataMapping) %}
@@ -15,7 +26,6 @@
     {% else %}
         {% set payloadList = [] %}
     {% endif %}
-
 
     {% if payloadList|length > 0 %}
         {% for payload in payloadList %}

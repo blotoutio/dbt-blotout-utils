@@ -1,12 +1,14 @@
-{% macro id_map_for_el_data() %}
+{% macro id_map_for_el_data(is_incremental = False) %}
     {%- set source_relation = adapter.get_relation(database = env_var('DATABASE'), schema = env_var('SCHEMA'), identifier = 'connection_pipeline') -%}
     {%- if source_relation != none %}
         {%- set get_active_pipelines %}
         SELECT
-             payload
+             payload,
+             source_name
         FROM
             (SELECT
                  payload,
+                 source_name,
                  name,
                  created_at,
                  updated_at,
@@ -20,11 +22,13 @@
         {%- set results = run_query(get_active_pipelines) -%}
         {%- if execute %}
             {%- set payloadList = results.columns [0].values() -%}
+            {%- set sourceNameList = results.columns [1].values() -%}
         {% else %}
             {%- set payloadList = [] -%}
         {% endif -%}
         {%- if payloadList | length > 0 %}
             {%- for payload in payloadList %}
+                {%- set sourceName = sourceNameList[loop.index-1] -%}
                 {%- set payloadObj = fromjson(payload) -%}
                 {%- set streams = payloadObj ['syncCatalog'] ['streams'] -%}
                 {%- for stream in streams %}
@@ -46,12 +50,15 @@
                             UNION
                             SELECT
                                 DISTINCT {{ map_primary_key[0] }} as user_id,
-                                {{ map_column[i] }} AS data_map_id,
+                                "{{ map_column[i] }}" AS data_map_id,
                                 '{{ map_provider[i] }}' AS data_map_provider,
-                                CAST(event_datetime AS timestamp) AS "user_id_created"
+                                CAST(etl_run_datetime AS timestamp) AS "user_id_created"
                             FROM
-                                -- ToDo Schema Name is missing
-                                hist_{{ table_name }}
+                                {{ sourceName }}.hist_{{ table_name }}
+                            {%- if is_incremental %}
+                                WHERE CAST(etl_run_datetime AS timestamp) >
+                                    (SELECT MAX(user_id_created) FROM {{ this }} WHERE data_map_provider = '{{ map_provider[i] }}')
+                            {% endif -%}
                         {% endfor -%}
                     {% endif -%}
                 {% endfor -%}
@@ -114,7 +121,7 @@
     {%- endfor %}
 {% endmacro %}
 
-{% macro id_map_for_clickstream_mapping(is_incremental = false) %}
+{% macro id_map_for_clickstream_mapping(is_incremental = FALSE) %}
     SELECT
         emap.user_id,
         emap.data_map_id,

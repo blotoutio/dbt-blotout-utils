@@ -148,7 +148,7 @@
                 user_id IS NOT NULL
                 AND data_map_id IS NOT NULL
                 {%- if is_incremental %}
-                    AND CAST(user_id_created AS TIMESTAMP) > (SELECT MAX(user_id_created) FROM {{ this }})
+                    AND CAST(event_datetime AS TIMESTAMP) > (SELECT MAX(user_id_created) FROM {{ this }})
                 {% endif -%}
         ) emap
     WHERE

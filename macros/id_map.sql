@@ -57,7 +57,8 @@
                                 {{ sourceName }}.hist_{{ table_name }}
                             {%- if is_incremental %}
                                 WHERE CAST(etl_run_datetime AS timestamp) >
-                                    (SELECT MAX(user_id_created) FROM {{ this }} WHERE data_map_provider = '{{ map_provider[i] }}')
+                                    (SELECT COALESCE(MAX(user_id_created), cast('1970-01-01 00:00:00.000' as timestamp))
+                                        FROM {{ this }} WHERE data_map_provider = '{{ map_provider[i] }}')
                             {% endif -%}
                         {% endfor -%}
                     {% endif -%}
@@ -81,10 +82,10 @@
                 core_events
             WHERE
                 search_gclid IS NOT NULL AND user_id IS NOT NULL
-                {%- if is_incremental %}
+                {% if is_incremental %}
                     AND CAST(event_datetime AS timestamp) > (select max(user_id_created) FROM {{ this }})
-                {% endif -%}
-                GROUP BY user_id, search_gclid
+                {% endif %}
+                  GROUP BY user_id, search_gclid
         {% endif -%}
 
         {%- if "search_fbclid" in column.name %}
@@ -98,10 +99,10 @@
                 core_events
             WHERE
                 search_fbclid IS NOT NULL AND user_id IS NOT NULL
-                {%- if is_incremental %}
+                {% if is_incremental %}
                     AND CAST(event_datetime AS timestamp) > (select max(user_id_created) FROM {{ this }})
-                {% endif -%}
-                GROUP BY user_id, search_fbclid
+                {% endif %}
+                  GROUP BY user_id, search_fbclid
         {% endif -%}
 
         {%- if "search_twclid" in column.name %}
@@ -115,11 +116,11 @@
                 core_events
             WHERE
                 search_twclid IS NOT NULL
-                AND user_id IS NOT NULL
-                {%- if is_incremental %}
+                AND user_id IS NOT NULL 
+                {% if is_incremental %}
                     AND CAST(event_datetime AS timestamp) > (select max(user_id_created) FROM {{ this }})
-                {% endif -%}
-                GROUP BY user_id, search_twclid
+                {% endif %}
+                  GROUP BY user_id, search_twclid
         {% endif -%}
     {%- endfor %}
 {% endmacro %}

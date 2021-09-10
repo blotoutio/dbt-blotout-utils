@@ -55,8 +55,11 @@
                                 CAST(etl_run_datetime AS timestamp) AS "user_id_created"
                             FROM
                                 {{ sourceName }}.hist_{{ table_name }}
+                            WHERE
+                                "{{ map_column[i] }}" IS NOT NULL
+                                AND {{ map_primary_key[0] }} IS NOT NULL
                             {%- if is_incremental %}
-                                WHERE CAST(etl_run_datetime AS timestamp) >
+                                 AND CAST(etl_run_datetime AS timestamp) >
                                     (SELECT COALESCE(MAX(user_id_created), cast('1970-01-01 00:00:00.000' as timestamp))
                                         FROM {{ this }} WHERE data_map_provider = '{{ map_provider[i] }}')
                             {% endif -%}

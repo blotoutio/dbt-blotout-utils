@@ -57,7 +57,8 @@
                                 {{ sourceName }}.hist_{{ table_name }}
                             {%- if is_incremental %}
                                 WHERE CAST(etl_run_datetime AS timestamp) >
-                                    (SELECT MAX(user_id_created) FROM {{ this }} WHERE data_map_provider = '{{ map_provider[i] }}')
+                                    (SELECT COALESCE(MAX(user_id_created), cast('1970-01-01 00:00:00.000' as timestamp))
+                                        FROM {{ this }} WHERE data_map_provider = '{{ map_provider[i] }}')
                             {% endif -%}
                         {% endfor -%}
                     {% endif -%}

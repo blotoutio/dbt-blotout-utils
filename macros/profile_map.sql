@@ -18,7 +18,7 @@
         {%- set get_active_pipelines %}
         SELECT
              payload,
-             source_name
+             lower(replace(source_name, ' ', '_')) as source_name
         FROM
             (SELECT
                  payload,
@@ -62,21 +62,28 @@
                         {%- for event_map in event_map_list %}
                            {%- do mapped_column.update({ event_map.get('map_event') :  event_map.get('map_column') }) -%}
                         {% endfor -%}
-                        {%- for key1 in super_dict %}
-                            {% if loop.first %}
-                                UNION SELECT
-                                {{ map_primary_key[0] }} as "user_id",
-                            {% endif -%}
-                            {%- if key1 in mapped_column %}
-                               {{ mapped_column.get(key1) }} AS "{{ super_dict.get(key1) }}",
-                            {% else %}
-                               null AS "{{ super_dict.get(key1) }}",
-                            {% endif -%}
-                            {%- if loop.last %}
-                            'sdk' AS "channel",
-                            etl_run_datetime as  event_datetime
-                            FROM {{ sourceName }}.hist_{{ table_name }} {% endif -%}
-                        {% endfor -%}
+                        {%- set check_relation = adapter.get_relation(
+                                         database = env_var('DATABASE'),
+                                         schema = sourceName,
+                                         identifier = table_name)
+                                    -%}
+                        {% if check_relation != None %}
+                             {%- for key1 in super_dict %}
+                                {% if loop.first %}
+                                    UNION SELECT
+                                    {{ map_primary_key[0] }} as "user_id",
+                                {% endif -%}
+                                {%- if key1 in mapped_column %}
+                                   {{ mapped_column.get(key1) }} AS "{{ super_dict.get(key1) }}",
+                                {% else %}
+                                   null AS "{{ super_dict.get(key1) }}",
+                                {% endif -%}
+                                {%- if loop.last %}
+                                'sdk' AS "channel",
+                                etl_run_datetime as  event_datetime
+                                FROM {{ sourceName }}.{{ table_name }} {% endif -%}
+                            {% endfor -%}
+                        {% endif -%}
                     {% endif -%}
                 {% endfor -%}
             {% endfor -%}

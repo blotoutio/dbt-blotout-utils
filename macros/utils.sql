@@ -31,8 +31,7 @@
             {% endif -%}
             {%- set schema_exists = [] -%}
             {%- for source_name in source_name_list %}
-                {%- set source_schema_name = source_name -%}
-
+                {%- set source_schema_name = source_name + '_'  + env_var('ENV') -%}
                 {%- set check_relation = adapter.get_relation(
                      database = env_var('DATABASE'),
                      schema = source_schema_name,

@@ -76,3 +76,20 @@
         {% endif -%}
     {%- endcall %}
 {% endmacro %}
+
+{% macro camel_to_snake(s) -%}
+    {%- set uppers = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' | list -%}
+    {%- set output = [] %}
+    {%- for char in (
+            s | list
+        ) -%}
+        {%- if char in uppers -%}
+            {% do output.append("_") %}
+            {% do output.append(char.lower()) %}
+        {%- else -%}
+            {% do output.append(char) %}
+        {%- endif %}
+    {%- endfor -%}
+
+    {{ return("".join(output)) }}
+{%- endmacro %}

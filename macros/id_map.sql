@@ -28,7 +28,7 @@
         {% endif -%}
         {%- if payloadList | length > 0 %}
             {%- for payload in payloadList %}
-                {%- set sourceName = sourceNameList[loop.index-1] -%}
+                {%- set sourceName = sourceNameList[loop.index-1] + '_' + env_var('ENV') -%}
                 {%- set payloadObj = fromjson(payload) -%}
                 {%- set streams = payloadObj ['syncCatalog'] ['streams'] -%}
                 {%- for stream in streams %}

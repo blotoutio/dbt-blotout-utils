@@ -63,6 +63,7 @@
                                     {{ sourceName }}.{{ table_name }}
                                 WHERE
                                     "{{ map_column[i] }}" IS NOT NULL
+                                    AND "{{ map_column[i] }}" NOT IN ('nan')
                                     AND {{ map_primary_key[0] }} IS NOT NULL
                                 {%- if is_incremental %}
                                      AND CAST(etl_run_datetime AS timestamp) >

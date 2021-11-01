@@ -79,7 +79,7 @@
                                    null AS "{{ super_dict.get(key1) }}",
                                 {% endif -%}
                                 {%- if loop.last %}
-                                'sdk' AS "channel",
+                                cast('sdk' as varchar) AS "channel",
                                 etl_run_datetime as  event_datetime
                                 FROM {{ sourceName }}.{{ table_name }} {% endif -%}
                             {% endfor -%}

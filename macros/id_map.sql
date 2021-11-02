@@ -55,10 +55,10 @@
                             {% if check_relation != None %}
                                 UNION
                                 SELECT
-                                    DISTINCT {{ map_primary_key[0] }} as user_id,
+                                    {{ map_primary_key[0] }} as user_id,
                                     "{{ map_column[i] }}" AS data_map_id,
                                     '{{ map_provider[i] }}' AS data_map_provider,
-                                    CAST(etl_run_datetime AS timestamp) AS "user_id_created"
+                                    CAST(min(etl_run_datetime) AS timestamp) AS "user_id_created"
                                 FROM
                                     {{ sourceName }}.{{ table_name }}
                                 WHERE
@@ -69,7 +69,8 @@
                                      AND CAST(etl_run_datetime AS timestamp) >
                                         (SELECT COALESCE(MAX(user_id_created), cast('1970-01-01 00:00:00.000' as timestamp))
                                             FROM {{ this }} WHERE data_map_provider = '{{ map_provider[i] }}')
-                                {% endif -%}
+                                {% endif %}
+                                GROUP BY {{ map_primary_key[0] }}, "{{ map_column[i] }}"
                             {% endif -%}
                         {% endfor -%}
                     {% endif -%}

@@ -97,3 +97,18 @@
 
     {{ return("".join(output)) }}
 {%- endmacro %}
+
+{% macro get_records_count_in_last_interval(database_name, schema_name, table_name, interval_in_hours) %}
+
+    {%- set metadata_source_relation = adapter.get_relation(database=database_name, schema=schema_name, identifier=table_name) -%}
+    {% if metadata_source_relation %}
+        {%- set get_active_pipelines %}
+            SELECT COUNT(*) FROM {{ env_var('SCHEMA') }}.{{ table_name }}
+                WHERE event_datetime  > to_iso8601(CURRENT_TIMESTAMP - INTERVAL '{{ interval_in_hours }}' HOUR)
+        {% endset -%}
+        {%- set results = run_query(get_active_pipelines) -%}
+        {{ log("dbt-blotout-utils:output " ~ results.columns [0].values()[0]) }}
+    {% else %}
+        {{ log("dbt-blotout-utils:output 0", info=True) }}
+    {% endif %}
+{% endmacro %}

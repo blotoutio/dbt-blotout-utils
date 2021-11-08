@@ -107,8 +107,8 @@
                 WHERE event_datetime  > to_iso8601(CURRENT_TIMESTAMP - INTERVAL '{{ interval_in_hours }}' HOUR)
         {% endset -%}
         {%- set results = run_query(get_active_pipelines) -%}
-        {{ log("dbt-blotout-utils:output " ~ results.columns [0].values()[0]) }}
+        {{ log("dbt-blotout-utils:output " ~ results.columns[0].values()[0], info=True) }}
     {% else %}
-        {{ log("dbt-blotout-utils:output 0", info=True) }}
+        {{ log("dbt-blotout-utils:output -1", info=True) }}
     {% endif %}
 {% endmacro %}

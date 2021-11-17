@@ -55,8 +55,8 @@
                             {% if check_relation != None %}
                                 UNION
                                 SELECT
-                                    {{ map_primary_key[0] }} as user_id,
-                                    "{{ map_column[i] }}" AS data_map_id,
+                                    trim({{ map_primary_key[0] }}) as user_id,
+                                    trim("{{ map_column[i] }}") AS data_map_id,
                                     '{{ map_provider[i] }}' AS data_map_provider,
                                     CAST(min(etl_run_datetime) AS timestamp) AS "user_id_created"
                                 FROM
@@ -134,6 +134,25 @@
                 {% endif %}
                   GROUP BY user_id, search_twclid
         {% endif -%}
+
+        {%- if "persona_email" in column.name %}
+            UNION
+            SELECT
+                user_id,
+                search_twclid AS data_map_id,
+                'twclid' AS data_map_provider,
+                MIN(CAST(event_datetime AS timestamp)) AS "user_id_created"
+            FROM
+                core_events
+            WHERE
+                search_twclid IS NOT NULL
+                AND user_id IS NOT NULL
+                {% if is_incremental %}
+                    AND CAST(event_datetime AS timestamp) > (select max(user_id_created) FROM {{ this }})
+                {% endif %}
+                  GROUP BY user_id, search_twclid
+        {% endif -%}
+
     {%- endfor %}
 {% endmacro %}
 

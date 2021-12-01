@@ -83,7 +83,7 @@
 {% macro id_map_for_clickstream_utm_id(source_columns, is_incremental = false) %}
 
     {%- for column in source_columns %}
-        {%- if "search_gclid" in column.name %}
+        {%- if "search_gclid" == column.name %}
             UNION
             SELECT
                 user_id,
@@ -100,7 +100,7 @@
                   GROUP BY user_id, search_gclid
         {% endif -%}
 
-        {%- if "search_fbclid" in column.name %}
+        {%- if "search_fbclid" == column.name %}
             UNION
             SELECT
                 user_id,
@@ -117,7 +117,7 @@
                   GROUP BY user_id, search_fbclid
         {% endif -%}
 
-        {%- if "search_twclid" in column.name %}
+        {%- if "search_twclid" == column.name %}
             UNION
             SELECT
                 user_id,
@@ -135,7 +135,7 @@
                   GROUP BY user_id, search_twclid
         {% endif -%}
 
-        {%- if "persona_email" in column.name %}
+        {%- if "persona_email" == column.name %}
             UNION
             SELECT
                 user_id,

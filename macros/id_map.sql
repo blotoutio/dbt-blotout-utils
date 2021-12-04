@@ -38,12 +38,14 @@
                         {%- set map_column = [] -%}
                         {%- set map_provider = [] -%}
                         {%- set map_primary_key = [] -%}
+                        {%- set map_primary_provider = [] -%}
                         {%- for id_map_definition in id_mapping %}
                             {%- if id_map_definition ['map_id'] == False %}
                                 {%- set map_column = map_column.append(id_map_definition ['map_column']) -%}
                                 {%- set map_provider = map_provider.append(id_map_definition ['map_provider']) -%}
                             {% else %}
                                 {%- set map_primary_key = map_primary_key.append(id_map_definition ['map_column']) -%}
+                                {%- set map_primary_provider = map_primary_provider.append(id_map_definition ['map_provider']) -%}
                             {% endif -%}
                         {% endfor -%}
                         {%- for i in range(map_column | length) %}
@@ -57,7 +59,8 @@
                                 SELECT
                                     trim("{{ map_column[i] }}") AS user_id,
                                     trim({{ map_primary_key[0] }}) as data_map_id,
-                                    '{{ map_provider[i] }}' AS data_map_provider,
+                                    '{{ map_provider[i] }}' AS "user_provider",
+                                    '{{ map_primary_provider[0] }}' AS data_map_provider,
                                     CAST(min(etl_run_datetime) AS timestamp) AS "user_id_created"
                                 FROM
                                     {{ sourceName }}.{{ table_name }}
@@ -68,7 +71,7 @@
                                 {%- if is_incremental %}
                                      AND CAST(etl_run_datetime AS timestamp) >
                                         (SELECT COALESCE(MAX(user_id_created), cast('1970-01-01 00:00:00.000' as timestamp))
-                                            FROM {{ this }} WHERE data_map_provider = '{{ map_provider[i] }}')
+                                            FROM {{ this }} WHERE orig_user_provider = '{{ map_provider[i] }}')
                                 {% endif %}
                                 GROUP BY {{ map_primary_key[0] }}, "{{ map_column[i] }}"
                             {% endif -%}
@@ -88,6 +91,7 @@
             SELECT
                 user_id,
                 search_gclid AS data_map_id,
+                'sdk' AS "user_provider",
                 'gclid' AS data_map_provider,
                 MIN(CAST(event_datetime AS timestamp)) AS "user_id_created"
             FROM
@@ -105,6 +109,7 @@
             SELECT
                 user_id,
                 search_fbclid AS data_map_id,
+                'sdk' AS "user_provider",
                 'fbclid' AS data_map_provider,
                 MIN(CAST(event_datetime AS timestamp)) AS "user_id_created"
             FROM
@@ -122,6 +127,7 @@
             SELECT
                 user_id,
                 search_twclid AS data_map_id,
+                'sdk' AS "user_provider",
                 'twclid' AS data_map_provider,
                 MIN(CAST(event_datetime AS timestamp)) AS "user_id_created"
             FROM
@@ -140,6 +146,7 @@
             SELECT
                 user_id,
                 search_twclid AS data_map_id,
+                'sdk' AS "user_provider",
                 'twclid' AS data_map_provider,
                 MIN(CAST(event_datetime AS timestamp)) AS "user_id_created"
             FROM
@@ -160,6 +167,7 @@
     SELECT
         emap.user_id,
         emap.data_map_id,
+        'sdk' AS "user_provider",
         emap.data_map_provider,
         CAST(
             emap.user_id_created AS TIMESTAMP

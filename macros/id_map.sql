@@ -55,8 +55,8 @@
                             {% if check_relation != None %}
                                 UNION
                                 SELECT
-                                    trim({{ map_primary_key[0] }}) as user_id,
-                                    trim("{{ map_column[i] }}") AS data_map_id,
+                                    trim("{{ map_column[i] }}") AS user_id,
+                                    trim({{ map_primary_key[0] }}) as data_map_id,
                                     '{{ map_provider[i] }}' AS data_map_provider,
                                     CAST(min(etl_run_datetime) AS timestamp) AS "user_id_created"
                                 FROM
@@ -128,7 +128,7 @@
                 core_events
             WHERE
                 search_twclid IS NOT NULL
-                AND user_id IS NOT NULL 
+                AND user_id IS NOT NULL
                 {% if is_incremental %}
                     AND CAST(event_datetime AS timestamp) > (select max(user_id_created) FROM {{ this }})
                 {% endif %}

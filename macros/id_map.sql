@@ -4,7 +4,7 @@
         {%- set get_active_pipelines %}
         SELECT
              payload,
-             source_name
+             lower(replace(source_name, ' ', '_')) as source_name
         FROM
             (SELECT
                  payload,
@@ -28,7 +28,7 @@
         {% endif -%}
         {%- if payloadList | length > 0 %}
             {%- for payload in payloadList %}
-                {%- set sourceName = sourceNameList[loop.index-1] -%}
+                {%- set sourceName = sourceNameList[loop.index-1] + '_' + env_var('ENV') -%}
                 {%- set payloadObj = fromjson(payload) -%}
                 {%- set streams = payloadObj ['syncCatalog'] ['streams'] -%}
                 {%- for stream in streams %}
@@ -47,18 +47,30 @@
                             {% endif -%}
                         {% endfor -%}
                         {%- for i in range(map_column | length) %}
-                            UNION
-                            SELECT
-                                DISTINCT {{ map_primary_key[0] }} as user_id,
-                                "{{ map_column[i] }}" AS data_map_id,
-                                '{{ map_provider[i] }}' AS data_map_provider,
-                                CAST(etl_run_datetime AS timestamp) AS "user_id_created"
-                            FROM
-                                {{ sourceName }}.hist_{{ table_name }}
-                            {%- if is_incremental %}
-                                WHERE CAST(etl_run_datetime AS timestamp) >
-                                    (SELECT COALESCE(MAX(user_id_created), cast('1970-01-01 00:00:00.000' as timestamp))
-                                        FROM {{ this }} WHERE data_map_provider = '{{ map_provider[i] }}')
+                            {%- set check_relation = adapter.get_relation(
+                                     database = env_var('DATABASE'),
+                                     schema = sourceName,
+                                     identifier = table_name)
+                                -%}
+                            {% if check_relation != None %}
+                                UNION
+                                SELECT
+                                    trim("{{ map_column[i] }}") AS user_id,
+                                    trim({{ map_primary_key[0] }}) as data_map_id,
+                                    '{{ map_provider[i] }}' AS data_map_provider,
+                                    CAST(min(etl_run_datetime) AS timestamp) AS "user_id_created"
+                                FROM
+                                    {{ sourceName }}.{{ table_name }}
+                                WHERE
+                                    "{{ map_column[i] }}" IS NOT NULL
+                                    AND "{{ map_column[i] }}" NOT IN ('nan')
+                                    AND {{ map_primary_key[0] }} IS NOT NULL
+                                {%- if is_incremental %}
+                                     AND CAST(etl_run_datetime AS timestamp) >
+                                        (SELECT COALESCE(MAX(user_id_created), cast('1970-01-01 00:00:00.000' as timestamp))
+                                            FROM {{ this }} WHERE data_map_provider = '{{ map_provider[i] }}')
+                                {% endif %}
+                                GROUP BY {{ map_primary_key[0] }}, "{{ map_column[i] }}"
                             {% endif -%}
                         {% endfor -%}
                     {% endif -%}
@@ -71,7 +83,7 @@
 {% macro id_map_for_clickstream_utm_id(source_columns, is_incremental = false) %}
 
     {%- for column in source_columns %}
-        {%- if "search_gclid" in column.name %}
+        {%- if "search_gclid" == column.name %}
             UNION
             SELECT
                 user_id,
@@ -88,7 +100,7 @@
                   GROUP BY user_id, search_gclid
         {% endif -%}
 
-        {%- if "search_fbclid" in column.name %}
+        {%- if "search_fbclid" == column.name %}
             UNION
             SELECT
                 user_id,
@@ -105,7 +117,7 @@
                   GROUP BY user_id, search_fbclid
         {% endif -%}
 
-        {%- if "search_twclid" in column.name %}
+        {%- if "search_twclid" == column.name %}
             UNION
             SELECT
                 user_id,
@@ -116,12 +128,31 @@
                 core_events
             WHERE
                 search_twclid IS NOT NULL
-                AND user_id IS NOT NULL 
+                AND user_id IS NOT NULL
                 {% if is_incremental %}
                     AND CAST(event_datetime AS timestamp) > (select max(user_id_created) FROM {{ this }})
                 {% endif %}
                   GROUP BY user_id, search_twclid
         {% endif -%}
+
+        {%- if "persona_email" == column.name %}
+            UNION
+            SELECT
+                user_id,
+                search_twclid AS data_map_id,
+                'twclid' AS data_map_provider,
+                MIN(CAST(event_datetime AS timestamp)) AS "user_id_created"
+            FROM
+                core_events
+            WHERE
+                search_twclid IS NOT NULL
+                AND user_id IS NOT NULL
+                {% if is_incremental %}
+                    AND CAST(event_datetime AS timestamp) > (select max(user_id_created) FROM {{ this }})
+                {% endif %}
+                  GROUP BY user_id, search_twclid
+        {% endif -%}
+
     {%- endfor %}
 {% endmacro %}
 

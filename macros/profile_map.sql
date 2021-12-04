@@ -18,7 +18,7 @@
         {%- set get_active_pipelines %}
         SELECT
              payload,
-             source_name
+             lower(replace(source_name, ' ', '_')) as source_name
         FROM
             (SELECT
                  payload,
@@ -48,30 +48,42 @@
                 {%- for stream in streams %}
                     {%- set mapped_column = {} -%}
                     {%- set table_name = stream ['stream'] ['name'] -%}
+                    {%- set id_mapping = stream ['stream'] ['jsonSchema'] ['metadata'] ['id_mapping'] -%}
+                    {%- if id_mapping | length > 0 %}
+                        {%- set map_primary_key = [] -%}
+                        {%- for id_map_definition in id_mapping %}
+                            {%- if id_map_definition ['map_id'] == True %}
+                                {%- set map_primary_key = map_primary_key.append(id_map_definition ['map_column']) -%}
+                            {% endif -%}
+                        {% endfor -%}
+                    {% endif -%}
                     {%- set event_map_list = stream ['stream'] ['jsonSchema'] ['metadata'] ['event_map'] -%}
                     {%- if event_map_list | length > 0 %}
                         {%- for event_map in event_map_list %}
                            {%- do mapped_column.update({ event_map.get('map_event') :  event_map.get('map_column') }) -%}
                         {% endfor -%}
-                        {%- for key1 in super_dict %}
-                            {% if loop.first %}
-                            UNION SELECT
-                             {%- if 'id' in mapped_column %}
-                                 {{ mapped_column.get(key1) }} AS "user_id",
-                             {% else %}
-                                 null AS "user_id",
-                             {% endif -%}
-                            {% endif -%}
-                            {%- if key1 in mapped_column %}
-                               {{ mapped_column.get(key1) }} AS "{{ super_dict.get(key1) }}",
-                            {% else %}
-                               null AS "{{ super_dict.get(key1) }}",
-                            {% endif -%}
-                            {%- if loop.last %}
-                            'sdk' AS "channel",
-                            etl_run_datetime as  event_datetime
-                            FROM {{ sourceName }}.hist_{{ table_name }} {% endif -%}
-                        {% endfor -%}
+                        {%- set check_relation = adapter.get_relation(
+                                         database = env_var('DATABASE'),
+                                         schema = sourceName,
+                                         identifier = table_name)
+                                    -%}
+                        {% if check_relation != None %}
+                             {%- for key1 in super_dict %}
+                                {% if loop.first %}
+                                    UNION SELECT
+                                    {{ map_primary_key[0] }} as "user_id",
+                                {% endif -%}
+                                {%- if key1 in mapped_column %}
+                                   {{ mapped_column.get(key1) }} AS "{{ super_dict.get(key1) }}",
+                                {% else %}
+                                   null AS "{{ super_dict.get(key1) }}",
+                                {% endif -%}
+                                {%- if loop.last %}
+                                cast('sdk' as varchar) AS "channel",
+                                etl_run_datetime as  event_datetime
+                                FROM {{ sourceName }}.{{ table_name }} {% endif -%}
+                            {% endfor -%}
+                        {% endif -%}
                     {% endif -%}
                 {% endfor -%}
             {% endfor -%}

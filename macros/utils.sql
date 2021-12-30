@@ -7,11 +7,11 @@
         {%- if source_relation != none %}
             {%- set get_active_pipelines %}
             SELECT
-                 lower(replace(source_name, ' ', '_')) as source_name
+                 source_name
             FROM
                 (SELECT
                      payload,
-                     source_name,
+                     lower(replace(source_name, ' ', '_')) as source_name,
                      name,
                      created_at,
                      updated_at,
@@ -20,7 +20,7 @@
                     over (partition BY name
                 ORDER BY  updated_at DESC) AS RN
                 FROM {{ env_var('SCHEMA') }}.connection_pipeline) emap
-            WHERE emap.RN = 1 AND is_deleted = 0 AND source_name LIKE '%Google%'
+            WHERE emap.RN = 1 AND is_deleted = 0 AND source_name LIKE '%google%ads%'
             {% endset -%}
             {%- set results = run_query(get_active_pipelines) -%}
             {%- if execute %}
@@ -61,22 +61,23 @@
                                      "{{ sch }}"."ad_group_ad_report"
                                  {%- if not loop.last %} UNION {% else %} ))l {% endif -%}
                             {% endfor -%}
+
+                            {%- for sch in schema_exists %}
+                                {%- if loop.first %}
+                                    JOIN (SELECT
+                                        DISTINCT *
+                                    FROM (
+                                {% endif -%}
+                                SELECT
+                                     "click_view.gclid" as google_ads_click_id,
+                                     "campaign.id" as google_ads_campaign_id
+                                 FROM
+                                     "{{ sch }}"."click_view"
+                                 {%- if not loop.last %} UNION {% else %} ))r ON
+                                 l.google_ads_campaign_id = r.google_ads_campaign_id {% endif -%}
+                            {% endfor -%}
                         {%- endcall %}
-                     {% endif -%}
-                    {%- for sch in schema_exists %}
-                        {%- if loop.first %}
-                            JOIN (SELECT
-                                DISTINCT *
-                            FROM (
-                        {% endif -%}
-                        SELECT
-                             "click_view.gclid" as google_ads_click_id,
-                             "campaign.id" as google_ads_campaign_id
-                         FROM
-                             "{{ sch }}"."click_view"
-                         {%- if not loop.last %} UNION {% else %} ))r ON
-                         l.google_ads_campaign_id = r.google_ads_campaign_id {% endif -%}
-                    {% endfor -%}
+                    {% endif -%}
             {% endif -%}
         {% endif -%}
 {% endmacro %}

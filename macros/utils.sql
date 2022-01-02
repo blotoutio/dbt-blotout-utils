@@ -38,7 +38,12 @@
                              schema = source_schema_name,
                              identifier = "ad_group_ad_report")
                         -%}
-                        {% if check_relation != None %}
+                         {%- set check_click_view_relation = adapter.get_relation(
+                              database = env_var('DATABASE'),
+                              schema = source_schema_name,
+                              identifier = "click_view")
+                         -%}
+                        {% if check_relation != None and check_click_view_relation != None %}
                              {%- set schema_exists = schema_exists.append(source_schema_name) -%}
                         {% endif -%}
                     {% endfor -%}
@@ -48,15 +53,16 @@
                                 {%- if loop.first %}
                                    CREATE TABLE
                                     {{ env_var('SCHEMA') }}.google_ads AS
+                                    SELECT tl.*, tr."campaign_start_date", tr."campaign_end_date" FROM (
                                     SELECT l.*, r.google_ads_click_id FROM (SELECT
                                         DISTINCT *
                                     FROM (
                                 {% endif -%}
                                 SELECT
-                                     "campaign.id" as google_ads_campaign_id,
-                                     "ad_group.name" as google_ads_group_name,
-                                     "campaign.name" as google_ads_campaign_name,
-                                     '{{ sch }}' as google_ads_provider_type
+                                     "campaign.id" AS google_ads_campaign_id,
+                                     "ad_group.name" AS google_ads_group_name,
+                                     "campaign.name" AS google_ads_campaign_name,
+                                     '{{ sch }}' AS google_ads_provider_type
                                  FROM
                                      "{{ sch }}"."ad_group_ad_report"
                                  {%- if not loop.last %} UNION {% else %} ))l {% endif -%}
@@ -69,12 +75,20 @@
                                     FROM (
                                 {% endif -%}
                                 SELECT
-                                     "click_view.gclid" as google_ads_click_id,
-                                     "campaign.id" as google_ads_campaign_id
+                                     "click_view.gclid" AS google_ads_click_id,
+                                     "campaign.id" AS google_ads_campaign_id
                                  FROM
                                      "{{ sch }}"."click_view"
                                  {%- if not loop.last %} UNION {% else %} ))r ON
-                                 l.google_ads_campaign_id = r.google_ads_campaign_id {% endif -%}
+                                 l.google_ads_campaign_id = r.google_ads_campaign_id) tl
+                                 JOIN
+                                 (SELECT
+                                    "campaign.id",
+                                    "campaign.start_date" AS "campaign_start_date",
+                                    "campaign.end_date" AS "campaign_end_date"
+                                 FROM
+                                 "{{ sch }}"."campaigns" ) tr
+                                 ON tl.google_ads_campaign_id = tr."campaign.id" {% endif -%}
                             {% endfor -%}
                         {%- endcall %}
                     {% endif -%}

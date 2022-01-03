@@ -91,7 +91,7 @@
             SELECT
                 user_id,
                 search_gclid AS data_map_id,
-                'sdk' AS "user_provider",
+                cast('sdk' AS VARCHAR) AS "user_provider",
                 'gclid' AS data_map_provider,
                 MIN(CAST(event_datetime AS timestamp)) AS "user_id_created"
             FROM
@@ -109,7 +109,7 @@
             SELECT
                 user_id,
                 search_fbclid AS data_map_id,
-                'sdk' AS "user_provider",
+                cast('sdk' AS VARCHAR) AS "user_provider",
                 'fbclid' AS data_map_provider,
                 MIN(CAST(event_datetime AS timestamp)) AS "user_id_created"
             FROM
@@ -127,7 +127,7 @@
             SELECT
                 user_id,
                 search_twclid AS data_map_id,
-                'sdk' AS "user_provider",
+                cast('sdk' AS VARCHAR) AS "user_provider",
                 'twclid' AS data_map_provider,
                 MIN(CAST(event_datetime AS timestamp)) AS "user_id_created"
             FROM
@@ -146,7 +146,7 @@
             SELECT
                 user_id,
                 search_twclid AS data_map_id,
-                'sdk' AS "user_provider",
+                cast('sdk' AS VARCHAR) AS "user_provider",
                 'twclid' AS data_map_provider,
                 MIN(CAST(event_datetime AS timestamp)) AS "user_id_created"
             FROM
@@ -167,7 +167,7 @@
     SELECT
         emap.user_id,
         emap.data_map_id,
-        'sdk' AS "user_provider",
+        cast('sdk' AS VARCHAR) AS "user_provider",
         emap.data_map_provider,
         CAST(
             emap.user_id_created AS TIMESTAMP

@@ -6,21 +6,22 @@
         {%- set source_relation = adapter.get_relation(database = env_var('DATABASE'), schema = env_var('SCHEMA'), identifier = 'connection_pipeline') -%}
         {%- if source_relation != none %}
             {%- set get_active_pipelines %}
-            SELECT
-                 source_name
-            FROM
-                (SELECT
-                     payload,
-                     lower(replace(source_name, ' ', '_')) as source_name,
-                     name,
-                     created_at,
-                     updated_at,
-                     is_deleted,
-                     row_number()
-                    over (partition BY name
-                ORDER BY  updated_at DESC) AS RN
-                FROM {{ env_var('SCHEMA') }}.connection_pipeline) emap
-            WHERE emap.RN = 1 AND is_deleted = 0 AND source_name LIKE '%google%ads%'
+                SELECT
+                     lower(replace(source_name, ' ', '_')) as source_name
+                FROM
+                    (SELECT
+                         payload,
+                         source_name,
+                         source_type,
+                         name,
+                         created_at,
+                         updated_at,
+                         is_deleted,
+                         row_number()
+                        over (partition BY name
+                    ORDER BY  updated_at DESC) AS RN
+                    FROM {{ env_var('SCHEMA') }}.connection_pipeline) emap
+                WHERE emap.RN = 1 AND is_deleted = 0 AND lower(source_type) LIKE '%google%ads%'
             {% endset -%}
             {%- set results = run_query(get_active_pipelines) -%}
             {%- if execute %}
@@ -80,16 +81,27 @@
                                  FROM
                                      "{{ sch }}"."click_view"
                                  {%- if not loop.last %} UNION {% else %} ))r ON
-                                 l.google_ads_campaign_id = r.google_ads_campaign_id) tl
-                                 JOIN
-                                 (SELECT
+                                    l.google_ads_campaign_id = r.google_ads_campaign_id) tl
+                                 {% endif -%}
+                            {% endfor -%}
+
+                            {%- for sch in schema_exists %}
+                                {%- if loop.first %}
+                                    JOIN (SELECT
+                                        *
+                                    FROM (
+                                {% endif -%}
+                                SELECT
                                     "campaign.id",
                                     "campaign.start_date" AS "campaign_start_date",
                                     "campaign.end_date" AS "campaign_end_date"
                                  FROM
-                                 "{{ sch }}"."campaigns" ) tr
-                                 ON tl.google_ads_campaign_id = tr."campaign.id" {% endif -%}
+                                 "{{ sch }}"."campaigns"
+                                 {%- if not loop.last %} UNION {% else %} ))tr ON
+                                    tl.google_ads_campaign_id = tr."campaign.id"
+                                 {% endif -%}
                             {% endfor -%}
+
                         {%- endcall %}
                     {% endif -%}
             {% endif -%}

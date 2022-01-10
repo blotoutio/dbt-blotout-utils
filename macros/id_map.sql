@@ -32,18 +32,20 @@
                 {%- set payloadObj = fromjson(payload) -%}
                 {%- set streams = payloadObj ['syncCatalog'] ['streams'] -%}
                 {%- for stream in streams %}
-                    {%- set table_name = stream ['stream'] ['name'] -%}
+                    {%- set table_name = stream ['stream'] ['name'] | lower-%}
                     {%- set id_mapping = stream ['stream'] ['jsonSchema'] ['metadata'] ['id_mapping'] -%}
                     {%- if id_mapping | length > 0 %}
                         {%- set map_column = [] -%}
                         {%- set map_provider = [] -%}
                         {%- set map_primary_key = [] -%}
+                        {%- set map_primary_provider = [] -%}
                         {%- for id_map_definition in id_mapping %}
                             {%- if id_map_definition ['map_id'] == False %}
                                 {%- set map_column = map_column.append(id_map_definition ['map_column']) -%}
                                 {%- set map_provider = map_provider.append(id_map_definition ['map_provider']) -%}
                             {% else %}
                                 {%- set map_primary_key = map_primary_key.append(id_map_definition ['map_column']) -%}
+                                {%- set map_primary_provider = map_primary_provider.append(id_map_definition ['map_provider']) -%}
                             {% endif -%}
                         {% endfor -%}
                         {%- for i in range(map_column | length) %}
@@ -55,22 +57,24 @@
                             {% if check_relation != None %}
                                 UNION
                                 SELECT
-                                    trim("{{ map_column[i] }}") AS user_id,
+                                    trim("{{ blotout_utils.camel_to_snake(map_column[i]) }}") AS user_id,
                                     trim({{ map_primary_key[0] }}) as data_map_id,
-                                    '{{ map_provider[i] }}' AS data_map_provider,
+                                    '{{ map_provider[i] }}' AS "user_provider",
+                                    '{{ map_primary_provider[0] }}' AS data_map_provider,
                                     CAST(min(etl_run_datetime) AS timestamp) AS "user_id_created"
                                 FROM
                                     {{ sourceName }}.{{ table_name }}
                                 WHERE
-                                    "{{ map_column[i] }}" IS NOT NULL
-                                    AND "{{ map_column[i] }}" NOT IN ('nan')
+                                    "{{ blotout_utils.camel_to_snake(map_column[i]) }}" IS NOT NULL
                                     AND {{ map_primary_key[0] }} IS NOT NULL
+                                    AND trim("{{ blotout_utils.camel_to_snake(map_column[i]) }}") NOT IN ('nan', '')
+                                    AND trim({{ map_primary_key[0] }}) NOT IN ('nan', '')
                                 {%- if is_incremental %}
                                      AND CAST(etl_run_datetime AS timestamp) >
                                         (SELECT COALESCE(MAX(user_id_created), cast('1970-01-01 00:00:00.000' as timestamp))
-                                            FROM {{ this }} WHERE data_map_provider = '{{ map_provider[i] }}')
+                                            FROM {{ this }} WHERE orig_user_provider = '{{ map_provider[i] }}')
                                 {% endif %}
-                                GROUP BY {{ map_primary_key[0] }}, "{{ map_column[i] }}"
+                                GROUP BY {{ map_primary_key[0] }}, "{{ blotout_utils.camel_to_snake(map_column[i]) }}"
                             {% endif -%}
                         {% endfor -%}
                     {% endif -%}
@@ -88,6 +92,7 @@
             SELECT
                 user_id,
                 search_gclid AS data_map_id,
+                MAX(application_name) AS "user_provider",
                 'gclid' AS data_map_provider,
                 MIN(CAST(event_datetime AS timestamp)) AS "user_id_created"
             FROM
@@ -105,6 +110,7 @@
             SELECT
                 user_id,
                 search_fbclid AS data_map_id,
+                MAX(application_name) AS "user_provider",
                 'fbclid' AS data_map_provider,
                 MIN(CAST(event_datetime AS timestamp)) AS "user_id_created"
             FROM
@@ -122,6 +128,7 @@
             SELECT
                 user_id,
                 search_twclid AS data_map_id,
+                MAX(application_name) AS "user_provider",
                 'twclid' AS data_map_provider,
                 MIN(CAST(event_datetime AS timestamp)) AS "user_id_created"
             FROM
@@ -140,6 +147,7 @@
             SELECT
                 user_id,
                 search_twclid AS data_map_id,
+                MAX(application_name) AS "user_provider",
                 'twclid' AS data_map_provider,
                 MIN(CAST(event_datetime AS timestamp)) AS "user_id_created"
             FROM
@@ -160,6 +168,7 @@
     SELECT
         emap.user_id,
         emap.data_map_id,
+        application_name AS "user_provider",
         emap.data_map_provider,
         CAST(
             emap.user_id_created AS TIMESTAMP
@@ -169,6 +178,7 @@
             SELECT
                 user_id,
                 data_map_id,
+                application_name,
                 data_map_provider,
                 user_id_created,
                 ROW_NUMBER() over (

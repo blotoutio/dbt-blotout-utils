@@ -58,7 +58,7 @@
                                 UNION
                                 SELECT
                                     trim("{{ blotout_utils.camel_to_snake(map_column[i]) }}") AS user_id,
-                                    trim({{ map_primary_key[0] }}) as data_map_id,
+                                    trim("{{ map_primary_key[0] }}") as data_map_id,
                                     '{{ map_provider[i] }}' AS "user_provider",
                                     '{{ map_primary_provider[0] }}' AS data_map_provider,
                                     CAST(min(etl_run_datetime) AS timestamp) AS "user_id_created"
@@ -66,15 +66,15 @@
                                     {{ sourceName }}.{{ table_name }}
                                 WHERE
                                     "{{ blotout_utils.camel_to_snake(map_column[i]) }}" IS NOT NULL
-                                    AND {{ map_primary_key[0] }} IS NOT NULL
+                                    AND "{{ map_primary_key[0] }}" IS NOT NULL
                                     AND trim("{{ blotout_utils.camel_to_snake(map_column[i]) }}") NOT IN ('nan', '')
-                                    AND trim({{ map_primary_key[0] }}) NOT IN ('nan', '')
+                                    AND trim("{{ map_primary_key[0] }}") NOT IN ('nan', '')
                                 {%- if is_incremental %}
                                      AND CAST(etl_run_datetime AS timestamp) >
                                         (SELECT COALESCE(MAX(user_id_created), cast('1970-01-01 00:00:00.000' as timestamp))
                                             FROM {{ this }} WHERE orig_user_provider = '{{ map_provider[i] }}')
                                 {% endif %}
-                                GROUP BY {{ map_primary_key[0] }}, "{{ blotout_utils.camel_to_snake(map_column[i]) }}"
+                                GROUP BY "{{ map_primary_key[0] }}", "{{ blotout_utils.camel_to_snake(map_column[i]) }}"
                             {% endif -%}
                         {% endfor -%}
                     {% endif -%}

@@ -156,7 +156,7 @@
                 search_twclid IS NOT NULL
                 AND user_id IS NOT NULL
                 {% if is_incremental %}
-                    AND CAST(event_datetime AS timestamp) > (select max(user_id_created) FROM {{ this }})
+                    AND CAST(user_id_created AS timestamp) > (select max(user_id_created) FROM {{ this }})
                 {% endif %}
                   GROUP BY user_id, search_twclid
         {% endif -%}
@@ -193,7 +193,7 @@
                 user_id IS NOT NULL
                 AND data_map_id IS NOT NULL
                 {%- if is_incremental %}
-                    AND CAST(event_datetime AS TIMESTAMP) > (SELECT MAX(user_id_created) FROM {{ this }})
+                    AND CAST(user_id_created AS TIMESTAMP) > (SELECT MAX(user_id_created) FROM {{ this }})
                 {% endif -%}
         ) emap
     WHERE

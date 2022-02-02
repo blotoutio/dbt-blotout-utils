@@ -122,7 +122,7 @@
         {%- endif %}
     {%- endfor -%}
 
-    {{ return("".join(output)) }}
+    {{ return("".join(output) | replace('-', '_') ) }}
 {%- endmacro %}
 
 {% macro get_records_count_in_last_interval(database_name, schema_name, table_name, interval_in_hours) %}
